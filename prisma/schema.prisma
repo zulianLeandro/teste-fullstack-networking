@@ -1,0 +1,146 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enumerações para controle de status
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ReferralStatus {
+  SENT
+  NEGOTIATING
+  CLOSED
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+// 1. Gestão de Membros e 5. Financeiro
+model User {
+  id        String    @id @default(uuid())
+  name      String
+  email     String    @unique
+  company   String
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  application     Application? @relation(fields: [applicationId], references: [id])
+  applicationId   String?      @unique
+  sentReferrals   Referral[]   @relation("SentBy")
+  receivedReferrals Referral[] @relation("ReceivedBy")
+  meetingsAsP1    Meeting[]    @relation("Participant1")
+  meetingsAsP2    Meeting[]    @relation("Participant2")
+  thanks          Thank[]
+  payments        Payment[]
+  checkins        CheckIn[]
+}
+
+// 1.a. Formulário de Intenção
+model Application {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  company   String
+  reason    String
+  status    ApplicationStatus @default(PENDING)
+  createdAt DateTime @default(now())
+
+  user      User?
+  invite    Invite?
+}
+
+// 1.c. Token de Convite para Cadastro
+model Invite {
+  id          String    @id @default(uuid())
+  token       String    @unique
+  expiresAt   DateTime
+  isUsed      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  application   Application @relation(fields: [applicationId], references: [id])
+  applicationId String      @unique
+}
+
+// 3. Geração de Negócios
+model Referral {
+  id          String   @id @default(uuid())
+  description String
+  contactInfo String
+  status      ReferralStatus @default(SENT)
+  createdAt   DateTime @default(now())
+
+  sentById      String
+  receivedById  String
+
+  sentBy      User @relation("SentBy", fields: [sentById], references: [id])
+  receivedBy  User @relation("ReceivedBy", fields: [receivedById], references: [id])
+}
+
+// 3.c. "Obrigados"
+model Thank {
+  id        String   @id @default(uuid())
+  description String
+  amount    Float?
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+// 4. Acompanhamento
+model Meeting {
+  id        String   @id @default(uuid())
+  date      DateTime
+  notes     String?
+  createdAt DateTime @default(now())
+
+  participant1Id String
+  participant2Id String
+
+  participant1 User @relation("Participant1", fields: [participant1Id], references: [id])
+  participant2 User @relation("Participant2", fields: [participant2Id], references: [id])
+}
+
+// 2. Comunicação e Engajamento
+model CheckIn {
+  id        String   @id @default(uuid())
+  meetingDate DateTime
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+}
+
+// 5. Financeiro
+model Payment {
+  id         String        @id @default(uuid())
+  amount     Float
+  dueDate    DateTime
+  status     PaymentStatus @default(PENDING)
+  createdAt  DateTime      @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
